@@ -3,82 +3,45 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Task Manager</title>
+    <title>Vikas WorkFlow</title>
     <style>
-        body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          box-shadow: 0 2px 5px rgba(126, 125, 126, 0.979);
-        }
-        th,
-        td {
-          border: 1px solid #494a4a36;
-          padding: 8px;
-          text-align: center;
-          position: relative;
-          height: 50px;
-          border-radius: 4px;
-        }
-        th {
-          background-color: #abf7f7;
-          position: sticky;
-          top: 0;
-          z-index: 2;
-        }
-        th:nth-child(3),
-        td:nth-child(3) {
-          position: sticky;
-          left: 0;
-          //background-color: #abf7f7;
-          z-index: 2;
-        }
-        tr:nth-child(even) {
-          background-color: #f9f9f9;
-        }
-        tr:hover {
-          background-color: #f1f1f1;
-        }
-        .highlight-1 {
-          background-color: rgb(255, 0, 0);
-        }
-        .highlight-2 {
-          background-color: green;
-        }
-        .highlight-3 {
-          background-color: blue;
-        }
-        .highlight-4 {
-          background-color: rgb(245, 15, 230);
-        }
-        .btn {
-          margin: 5px;
-          padding: 10px 15px;
-          border: none;
-          background-color: #007bff;
-          color: white;
-          border-radius: 4px;
-          cursor: pointer;
-        }
-        .btn:hover {
-          background-color: #0056b3;
-        }
-        .date-column {
-          font-size: 12px;
-        }
-        .saturday-column {
-          background: linear-gradient(to bottom, #cceeff, #e6f7ff);
-        }
-        .sunday-column {
-          background: linear-gradient(to bottom, #cceeff, #e6f7ff);
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        table { width: 100%; border-collapse: collapse; box-shadow: 0 2px 5px rgba(126, 125, 126, 0.979); }
+        th, td { border: 1px solid #494a4a36; padding: 8px; text-align: center; position: relative; height: 50px; border-radius: 4px; }
+        th { background: hsl(225, 70%, 90%); position: sticky; top: 0; z-index: 2; }
+        th:nth-child(3), td:nth-child(3) { position: sticky; left: 0; background: #aaa9a9; z-index: 2; min-width: 300px !important; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        tr:hover { background: #f1f1f1; }
+        .highlight-1 { background: rgb(252, 5, 198); }
+        .highlight-2 { background: rgb(248, 28, 94); }
+        .highlight-3 { background: rgb(0, 118, 253); }
+        .highlight-4 { background: rgb(19, 255, 78); }
+        .btn { margin: 5px; padding: 10px 15px; border: none; background: #007bff; color: white; border-radius: 4px; cursor: pointer; }
+        .btn:hover { background: #0056b3; }
+        .date-column { font-size: 12px; }
+        .saturday-column, .sunday-column { background: linear-gradient(to bottom, #e0f3f5, #e0f3f5); }
+        .loading { position: fixed; top: 0; left: 0; right: 0; padding: 10px; background: #4CAF50; color: white; text-align: center; display: none; }
+        .offline { background: #f44336; }
+        .filters { display: flex; gap: 10px; margin: 10px 0; }
+        .search-box, .category-filter { padding: 8px; border: 1px solid #ddd; border-radius: 4px; min-width: 200px; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.9/xlsx.full.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
-<h1>Task Manager</h1>
+<h1>WorkFlow for daily use</h1>
+<div class="filters">
+    <input type="text" class="search-box" placeholder="Search tasks..." onkeyup="filterTasks(this.value)">
+    <select class="category-filter" onchange="filterByCategory(this.value)">
+        <option value="">All Categories</option>
+        <option value="1. Adhoc">1. Adhoc</option>
+        <option value="2. Personal">2. Personal</option>
+        <option value="3. Ramp deadline">3. Ramp deadline</option>
+        <option value="4. CMT date">4. CMT date</option>
+    </select>
+</div>
+<div id="loadingBar" class="loading">Loading...</div>
 <button class="btn" onclick="addTaskRow()">Add Task</button>
 <button class="btn" onclick="saveTasks()">Save Tasks</button>
 <button class="btn" onclick="moveTaskUp()">Move Up</button>
@@ -86,251 +49,251 @@
 <button class="btn" onclick="deleteTask()">Delete</button>
 <button class="btn" onclick="importTasks()">Import Tasks</button>
 <button class="btn" onclick="exportTasks()">Export Tasks</button>
+<button class="btn" onclick="sortTasks()">Sort by Category & Name</button>
+<input type="number" id="dateRangeInput" placeholder="Enter number of weeks">
+<button class="btn" onclick="updateDateRange()">Update Date Range</button>
 <table id="taskTable">
     <thead>
-    <tr>
-        <th>Tick</th>
-        <th>Edit</th>
-        <th>Task Name</th>
-        <th>Category</th>
-        <th>Days</th>
-        <th>End Date</th>
-        <!-- Date columns will be added dynamically -->
-    </tr>
+        <tr>
+            <th>Tick</th>
+            <th>Edit</th>
+            <th style="width: 800px;">Task Name</th>
+            <th>Category</th>
+            <th>Days</th>
+            <th>End Date</th>
+        </tr>
     </thead>
     <tbody></tbody>
 </table>
-
 <script>
     let tasks = [];
     let selectedTasks = new Set();
-    const dateRange = generateDateRange(56); // 8 weeks = 56 days
-
-    const categories = {
-      "Personal": "highlight-1",
-      "Ramp deadline": "highlight-2",
-      "Adhoc": "highlight-3",
-      "CMT date": "highlight-4"
+    let db;
+    let dateRange;
+    let categories;
+    async function initializeFirebase() {
+        const firebaseConfig = {
+            apiKey: "AIzaSyBAFV9ZgRTxW_vC8QyLagbvjnuylNmsG1g",
+            authDomain: "taskmanager-4fca8.firebaseapp.com",
+            projectId: "taskmanager-4fca8",
+            storageBucket: "taskmanager-4fca8.firebasestorage.app",
+            messagingSenderId: "538917032910",
+            appId: "1:538917032910:web:b73774b02d59ba7fb6919f",
+            measurementId: "G-EE3HPJ3M1V"
+        };
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            console.log("Firebase initialized");
+            const testDoc = await db.collection('tasks').doc('test').get();
+            console.log("Database connected");
+        } catch (error) {
+            console.error("Firebase error:", error);
+            alert("Database connection failed");
+        }
+    }
+    function initializeData() {
+        categories = {
+            "1. Adhoc": "highlight-3",
+            "2. Personal": "highlight-1",
+            "3. Ramp deadline": "highlight-2",
+            "4. CMT date": "highlight-4"
+        };
+        dateRange = generateDateRange(56);
+    }
+    function generateDateRange(days) {
+        const dates = [], today = new Date(), startOfWeek = new Date(today),
+            inputWeeks = parseInt(document.getElementById('dateRangeInput').value) || 0;
+        startOfWeek.setDate(today.getDate() - ((today.getDay() + 6) % 7) - (inputWeeks * 7));
+        for (let i = 0; i < days; i++) {
+            const date = new Date(startOfWeek);
+            date.setDate(startOfWeek.getDate() + i);
+            dates.push({ original: date.toISOString().split("T")[0], display: formatDisplayDate(date) });
+        }
+        return dates;
+    }
+    function formatDisplayDate(date) {
+        return date.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }).replace(',', '');
+    }
+    function updateDateRange() {
+        dateRange = generateDateRange(56);
+        updateTable();
+        updateTableHeaders();
+    }
+    function updateTableHeaders() {
+        const headerRow = document.getElementById("taskTable").getElementsByTagName("thead")[0].rows[0];
+        while (headerRow.cells.length > 6) headerRow.deleteCell(6);
+        dateRange.forEach(dateObj => {
+            const th = document.createElement("th");
+            th.textContent = dateObj.display;
+            headerRow.appendChild(th);
+        });
+    }
+    window.addTaskRow = function() {
+        const table = document.getElementById("taskTable").getElementsByTagName("tbody")[0];
+        const row = table.insertRow(0);  // Insert the row at the top
+        ["<input type='checkbox' onclick='toggleTaskSelection(this)'>",
+        "<button onclick='saveNewTask(this)'>Save</button>",
+        "<input type='text'>",
+        `<select>${Object.keys(categories).map(c => `<option value='${c}'>${c}</option>`).join('')}</select>`,
+        "<input type='number'>",
+        "<input type='date'>"].forEach((html, i) => row.insertCell(i).innerHTML = html);
+        dateRange.forEach(date => row.insertCell().textContent = date.display);
     };
 
-    function generateDateRange(days) {
-      const dates = [];
-      const today = new Date();
-      for (let i = 0; i < days; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
-        dates.push({
-          original: date.toISOString().split("T")[0], // For comparison
-          display: formatDisplayDate(date),           // For showing in table
-        });
-      }
-      return dates;
-    }
+    window.saveNewTask = function(button) {
+        const row = button.parentElement.parentElement;
+        const newTask = {
+            taskName: row.cells[2].querySelector("input").value,
+            category: row.cells[3].querySelector("select").value,
+            days: row.cells[4].querySelector("input").value,
+            endDate: row.cells[5].querySelector("input").value
+        };
+        // Add the new task to the tasks array at the top (index 0)
+        tasks.unshift(newTask); 
+        updateTable(); // Refresh the table to show the updated task list
+    };
 
-    function formatDisplayDate(date) {
-      return date.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }).replace(',', '');
-    }
-
-    function addTaskRow() {
-      const table = document
-        .getElementById("taskTable")
-        .getElementsByTagName("tbody")[0];
-      const row = table.insertRow();
-      const selectCell = row.insertCell(0);
-      const editCell = row.insertCell(1);
-      const taskNameCell = row.insertCell(2);
-      const categoryCell = row.insertCell(3);
-      const daysCell = row.insertCell(4);
-      const endDateCell = row.insertCell(5);
-
-      selectCell.innerHTML =
-        '<input type="checkbox" onclick="toggleTaskSelection(this)">';
-      editCell.innerHTML =
-        '<button onclick="saveNewTask(this)">Save</button>';
-      taskNameCell.innerHTML = '<input type="text">';
-      categoryCell.innerHTML = `<select>${Object.keys(categories).map(category => `<option value="${category}">${category}</option>`).join('')}</select>`;
-      daysCell.innerHTML = '<input type="number">';
-      endDateCell.innerHTML = '<input type="date">';
-
-      dateRange.forEach((date) => {
-        const dateCell = row.insertCell();
-        dateCell.textContent = formatDisplayDate(new Date(date));
-        dateCell.classList.add("date-column");
-      });
-    }
-
-    function saveNewTask(button) {
-      const row = button.parentElement.parentElement;
-      const taskName = row.cells[2].getElementsByTagName("input")[0].value;
-      const category = row.cells[3].getElementsByTagName("select")[0].value;
-      const days = row.cells[4].getElementsByTagName("input")[0].value;
-      const endDate = row.cells[5].getElementsByTagName("input")[0].value;
-
-      tasks.push({ taskName, category, days, endDate });
-      updateTable();
-    }
-
-    function toggleTaskSelection(checkbox) {
-      const row = checkbox.parentElement.parentElement;
-      const index = row.rowIndex - 1;
-      if (checkbox.checked) {
-        selectedTasks.add(index);
-      } else {
-        selectedTasks.delete(index);
-      }
-    }
-
-    function editTask(button) {
-      const row = button.parentElement.parentElement;
-      const index = row.rowIndex - 1;
-      const task = tasks[index];
-      row.cells[2].innerHTML = `<input type="text" value="${task.taskName}">`;
-      row.cells[3].innerHTML = `<select>${Object.keys(categories).map(category => `<option value="${category}" ${task.category === category ? "selected" : ""}>${category}</option>`).join('')}</select>`;
-      row.cells[4].innerHTML = `<input type="number" value="${task.days}">`;
-      row.cells[5].innerHTML = `<input type="date" value="${task.endDate}">`;
-      button.textContent = "Save";
-      button.onclick = () => saveEditedTask(row, index);
-    }
-
-    function saveEditedTask(row, index) {
-      const taskName = row.cells[2].getElementsByTagName("input")[0].value;
-      const category = row.cells[3].getElementsByTagName("select")[0].value;
-      const days = row.cells[4].getElementsByTagName("input")[0].value;
-      const endDate = row.cells[5].getElementsByTagName("input")[0].value;
-
-      tasks[index] = { taskName, category, days, endDate };
-      updateTable();
-    }
-
+    window.toggleTaskSelection = function(checkbox) {
+        const index = checkbox.parentElement.parentElement.rowIndex - 1;
+        checkbox.checked ? selectedTasks.add(index) : selectedTasks.delete(index);
+    };
+    window.editTask = function(button) {
+        const row = button.parentElement.parentElement, index = row.rowIndex - 1, task = tasks[index];
+        [task.taskName, task.category, task.days, task.endDate].forEach((val, i) => 
+            row.cells[i+2].innerHTML = i === 1 ? `<select>${Object.keys(categories).map(c => `<option value='${c}' ${task.category === c ? "selected" : ""}>${c}</option>`).join('')}</select>` : 
+            `<input type='${i === 3 ? "date" : "text"}' value='${val}'>`);
+        button.textContent = "Save";
+        button.onclick = () => window.saveEditedTask(row, index);
+    };
+    window.saveEditedTask = function(row, index) {
+        tasks[index] = {
+            taskName: row.cells[2].querySelector("input").value,
+            category: row.cells[3].querySelector("select").value,
+            days: row.cells[4].querySelector("input").value,
+            endDate: row.cells[5].querySelector("input").value
+        };
+        updateTable();
+    };
     function updateTable() {
-      const table = document
-        .getElementById("taskTable")
-        .getElementsByTagName("tbody")[0];
-      table.innerHTML = "";
-      tasks.forEach((task, index) => {
-        const row = table.insertRow();
-        const selectCell = row.insertCell(0);
-        const editCell = row.insertCell(1);
-        const taskNameCell = row.insertCell(2);
-        const categoryCell = row.insertCell(3);
-        const daysCell = row.insertCell(4);
-        const endDateCell = row.insertCell(5);
-
-        selectCell.innerHTML = `<input type="checkbox" onclick="toggleTaskSelection(this)" ${
-          selectedTasks.has(index) ? "checked" : ""
-        }>`;
-        editCell.innerHTML = '<button onclick="editTask(this)">Edit</button>';
-        taskNameCell.textContent = task.taskName;
-        categoryCell.textContent = task.category;
-        daysCell.textContent = task.days;
-        endDateCell.textContent = task.endDate;
-
-        const endDate = new Date(task.endDate);
-        let daysLeft = task.days;
-        let currentDate = new Date(endDate);
-
-        while (daysLeft > 0) {
-          if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
-            daysLeft--;
-          }
-          currentDate.setDate(currentDate.getDate() - 1);
-        }
-
-        const startDate = new Date(currentDate);
-        startDate.setDate(startDate.getDate() + 1);
-
-        dateRange.forEach((dateObj, i) => {
-          const dateCell = row.insertCell();
-          const currentDate = new Date(dateObj.original); // Use original format for comparison
-          if (currentDate >= startDate && currentDate <= endDate) {
-            dateCell.classList.add(categories[task.category]);
-          }
-          dateCell.textContent = dateObj.display; // Show formatted date
-
-          // Apply gradient color for Saturday and Sunday
-          const dayOfWeek = currentDate.getDay();
-          if (dayOfWeek === 6) {
-            dateCell.classList.add("saturday-column");
-          } else if (dayOfWeek === 0) {
-            dateCell.classList.add("sunday-column");
-          }
+        const table = document.getElementById("taskTable").getElementsByTagName("tbody")[0];
+        table.innerHTML = "";
+        tasks.forEach((task, index) => {
+            const row = table.insertRow(), endDate = new Date(task.endDate);
+            [
+                `<input type='checkbox' onclick='toggleTaskSelection(this)' ${selectedTasks.has(index) ? "checked" : ""}>`,
+                "<button onclick='editTask(this)'>Edit</button>",
+                task.taskName,
+                task.category,
+                task.days,
+                task.endDate
+            ].forEach((content, i) => row.insertCell(i).innerHTML = content);
+            row.cells[2].style.width = "800px";
+            let daysLeft = task.days, currentDate = new Date(endDate);
+            while (daysLeft > 0) (currentDate.getDay() % 6) && daysLeft--, currentDate.setDate(currentDate.getDate() - 1);
+            const startDate = new Date(currentDate.setDate(currentDate.getDate() + 1));
+            dateRange.forEach(({ original, display }) => {
+                const dateCell = row.insertCell(), date = new Date(original), day = date.getDay();
+                dateCell.textContent = display;
+                if (date >= startDate && date <= endDate) dateCell.classList.add(categories[task.category]);
+                if (day === 6) dateCell.classList.add("saturday-column");
+                else if (day === 0) dateCell.classList.add("sunday-column");
+            });
         });
-      });
     }
-
-    function saveTasks() {
-      const csvContent = tasks
-        .map(
-          (task) =>
-            `${task.taskName},${task.category},${task.days},${task.endDate}`
-        )
-        .join("\n");
-      localStorage.setItem("tasks", csvContent); // Saving to localStorage for simplicity
-      alert("Tasks saved successfully");
+    window.saveTasks = async function () {
+        try {
+            await db.collection('tasks').doc('userTasks').set({
+                tasks: tasks.map(task => ({ ...task, days: +task.days || 0 })),
+                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            alert("Tasks saved successfully");
+        } catch (error) {
+            alert("Error saving tasks: " + error.message);
+        }
+    };
+    window.loadTasks = async function () {
+        try {
+            const doc = await db.collection('tasks').doc('userTasks').get();
+            if (doc.exists) tasks = doc.data().tasks || [];
+            updateTable();
+        } catch (error) {
+            console.error("Error loading tasks:", error);
+        }
+    };
+    function setupRealtimeListener() {
+        db.collection('tasks').doc('userTasks').onSnapshot(doc => {
+            if (doc.exists) tasks = doc.data().tasks || [];
+            updateTable();
+        }, error => console.error("Real-time update error:", error));
     }
-
-    function loadTasks() {
-      const savedTasks = localStorage.getItem("tasks");
-      if (savedTasks) {
-        const rows = savedTasks
-          .split("\n")
-          .filter((row) => row.trim() !== "");
-        tasks = rows.map((row) => {
-          const [taskName, category, days, endDate] = row.split(",");
-          return { taskName, category, days: parseInt(days), endDate };
+    function showLoading(show, text = '') {
+        const bar = document.getElementById('loadingBar');
+        bar.style.display = show ? 'block' : 'none';
+        if (text) bar.textContent = text;
+    }
+    function setupOfflineSupport() {
+        window.addEventListener('online', () => showLoading(true, 'Back online'), setTimeout(() => showLoading(false), 2000));
+        window.addEventListener('offline', () => showLoading(true, 'Working offline'));
+    }
+    window.onload = async function () {
+        try {
+            showLoading(true);
+            await initializeFirebase();
+            initializeData();
+            await loadTasks();
+            setupRealtimeListener();
+            setupOfflineSupport();
+            dateRange.forEach(({ display }) => {
+                const th = document.createElement("th");
+                th.textContent = display;
+                document.querySelector("#taskTable thead tr").appendChild(th);
+            });
+        } catch (error) {
+            console.error("Initialization error:", error);
+        } finally {
+            showLoading(false);
+        }
+    };
+    window.deleteTask = function () {
+        tasks = tasks.filter((_, i) => !selectedTasks.has(i));
+        selectedTasks.clear();
+        updateTable();
+    };
+    window.moveTaskUp = function () {
+        [...selectedTasks].sort().forEach(i => {
+            if (i > 0) [tasks[i], tasks[i - 1]] = [tasks[i - 1], tasks[i]];
+            selectedTasks.delete(i);
+            selectedTasks.add(i - 1);
         });
         updateTable();
-      }
-    }
-
-    window.onload = () => {
-      loadTasks(); // Load tasks on page load
-      const headerRow = document
-        .getElementById("taskTable")
-        .getElementsByTagName("thead")[0].rows[0];
-        dateRange.forEach((dateObj) => {
-          const th = document.createElement("th");
-          th.textContent = dateObj.display; // Use 'display' for the formatted date
-          headerRow.appendChild(th);
-        });
-
     };
-
-    function deleteTask() {
-      tasks = tasks.filter((_, index) => !selectedTasks.has(index));
-      selectedTasks.clear();
-      updateTable();
+    window.moveTaskDown = function () {
+        [...selectedTasks].sort().reverse().forEach(i => {
+            if (i < tasks.length - 1) [tasks[i], tasks[i + 1]] = [tasks[i + 1], tasks[i]];
+            selectedTasks.delete(i);
+            selectedTasks.add(i + 1);
+        });
+        updateTable();
+    };
+    function filterTasks(query) {
+        const category = document.querySelector('.category-filter').value;
+        document.querySelectorAll('#taskTable tbody tr').forEach(row => {
+            const [task, cat] = [row.cells[2].textContent.toLowerCase(), row.cells[3].textContent];
+            row.style.display = (task.includes(query.toLowerCase()) && (!category || cat === category)) ? '' : 'none';
+        });
     }
-
-    function moveTaskUp() {
-      const selectedIndexes = Array.from(selectedTasks).sort();
-      selectedIndexes.forEach((index) => {
-        if (index > 0) {
-          [tasks[index], tasks[index - 1]] = [tasks[index - 1], tasks[index]];
-          selectedTasks.delete(index);
-          selectedTasks.add(index - 1);
-        }
-      });
-      updateTable();
+    function filterByCategory() {
+        filterTasks(document.querySelector('.search-box').value);
     }
-
-    function moveTaskDown() {
-      const selectedIndexes = Array.from(selectedTasks).sort().reverse();
-      selectedIndexes.forEach((index) => {
-        if (index < tasks.length - 1) {
-          [tasks[index], tasks[index + 1]] = [tasks[index + 1], tasks[index]];
-          selectedTasks.delete(index);
-          selectedTasks.add(index + 1);
-        }
-      });
-      updateTable();
-    }
-
-    function importTasks() {
+    window.sortTasks = function () {
+        tasks.sort((a, b) => a.category.localeCompare(b.category) || a.taskName.localeCompare(b.taskName));
+        updateTable();
+    };
+    window.importTasks = function() {
         const input = document.createElement("input");
         input.type = "file";
         input.accept = ".xlsx";
-
         input.addEventListener("change", function (event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -355,19 +318,15 @@
                         endDate: endDate
                     };
                 });
-
                 updateTable();
                 alert("Tasks imported successfully!");
             };
-
             reader.readAsArrayBuffer(file);
         });
 
         input.click();
     }
-
-    function exportTasks() {
-        // Convert tasks to a format suitable for export
+    window.exportTasks = function() {
         const formattedTasks = tasks.map(task => {
             const endDate = task.endDate ? new Date(task.endDate) : null;
             return {
@@ -379,18 +338,10 @@
                 "End Date (Year)": endDate ? endDate.getFullYear() : ""
             };
         });
-
-        // Create a worksheet from the formatted tasks
         const worksheet = XLSX.utils.json_to_sheet(formattedTasks);
-
-        // Create a new workbook and append the worksheet
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Tasks");
-
-        // Write the workbook to a binary array
         const wbout = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-
-        // Create a Blob from the binary array and generate a download link
         const blob = new Blob([wbout], { type: "application/octet-stream" });
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
